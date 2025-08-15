@@ -1,0 +1,21 @@
+{
+  "ignores": [
+    "eslint-config-next",
+    "typescript",
+    "@types/*",
+
+    "postcss",
+    "tailwindcss",
+    "autoprefixer",
+
+    "jest",
+    "@testing-library/*",
+
+    "sharp"
+  ],
+  "ignore-patterns": [
+    "dist",
+    ".next",
+    ".vercel"
+  ]
+}
