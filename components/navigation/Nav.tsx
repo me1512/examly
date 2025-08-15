@@ -48,7 +48,7 @@ export const NavItems = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              Get Started Free
+              Login
             </motion.button>
             <ThemeToggle />
           </div>
@@ -94,7 +94,7 @@ export const NavItems = () => {
               Pricing
             </a>
             <button className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-2 text-white">
-              Get Started Free
+              Login
             </button>
             <ThemeToggle />
           </div>
