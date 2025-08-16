@@ -1,7 +1,30 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant dark (&:where(.dark, .dark *)); /* dark mode styles are applied when an element has the .dark class OR when it's a descendant of an element with .dark class */
+
+/* Color scheme handled by CSS classes */
+:root {
+  color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
+}
+
+/* Smooth transitions for theme changes (not initial load) */
+*,
+*::before,
+*::after {
+  transition-property: color, background-color, border-color;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Disable transitions on initial page load */
+.no-transition * {
+  transition: none !important;
+}
 
 @theme inline {
   --color-background: var(--background);

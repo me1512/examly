@@ -1,50 +1,50 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import { devtools } from "zustand/middleware";
-import { createJSONStorage } from "zustand/middleware";
 
 export type Theme = "light" | "dark" | "system";
 
 interface ThemeState {
   theme: Theme;
   setTheme: (theme: Theme) => void;
-  applyTheme: (theme?: Theme) => void;
+  hydrated: boolean;
+  setHydrated: (hydrated: boolean) => void;
 }
 
-export const useThemeStore = create<ThemeState>()(
-  persist(
-    devtools(
-      (set, get) => ({
-        // Initial State
-        theme: localStorage.getItem("theme") || "system",
+export const useThemeStore = create<ThemeState>()((set, get) => ({
+  // NEVER access localStorage in initial state - always use default
+  theme: "system", // Default value, no localStorage access
+  hydrated: false,
 
-        // Actions
-        setTheme: (newTheme) => {
-          localStorage.setItem("theme", newTheme);
-          set({ theme: newTheme });
-          get().applyTheme(newTheme);
-        },
-        applyTheme: (theme) => {
-          const appliedTheme = theme ?? get().theme;
-          const isDark =
-            appliedTheme === "dark" ||
-            (appliedTheme === "system" &&
-              window.matchMedia("(prefers-color-scheme: dark)").matches);
-          document.body.classList.toggle("dark", isDark);
-        },
-      }),
-      // The options object for devtools
-      {
-        name: "ThemeStore",
-      },
-    ),
-    // The options object for persist
-    {
-      name: "theme-store", // Use a different key for localStorage
-      storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        theme: state.theme,
-      }),
-    },
-  ),
-);
+  setTheme: (newTheme: Theme) => {
+    set({ theme: newTheme });
+    // Only access localStorage in actions (client-side)
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("theme-storage", newTheme);
+      } catch (error) {
+        console.warn("Failed to save theme:", error);
+      }
+    }
+  },
+
+  setHydrated: (hydrated: boolean) => set({ hydrated }),
+}));
+
+// Client-side hydration function
+export const hydrateThemeStore = () => {
+  if (typeof window === "undefined") return;
+
+  try {
+    const storedTheme = localStorage.getItem("theme-storage");
+    if (storedTheme && ["light", "dark", "system"].includes(storedTheme)) {
+      useThemeStore.setState({
+        theme: storedTheme as Theme,
+        hydrated: true,
+      });
+    } else {
+      useThemeStore.setState({ hydrated: true });
+    }
+  } catch (error) {
+    console.warn("Failed to load theme:", error);
+    useThemeStore.setState({ hydrated: true });
+  }
+};

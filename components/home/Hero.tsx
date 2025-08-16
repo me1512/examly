@@ -11,13 +11,7 @@ const Hero = () => {
         <div className="absolute inset-0 -z-[5] bg-black opacity-75"></div>
         {/* Background image */}
         <div className="absolute inset-0 -z-10">
-          <Image
-            src="/hero.webp"
-            alt="Hero Image"
-            layout="fill"
-            objectFit="cover"
-            objectPosition="center" // zIndex is not a valid prop for next/image, CSS z-index should be applied via className
-          />
+          <Image src="/hero.webp" alt="Hero Image" fill priority />
         </div>
         <div className="mx-auto max-w-7xl">
           <div className="text-center">

@@ -1,27 +1,56 @@
 "use client";
 
 import { useEffect } from "react";
-import { useThemeStore, Theme } from "@/stores/themeStore";
+import { useThemeStore, hydrateThemeStore, Theme } from "@/stores/themeStore";
 
 export default function ThemeProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const setTheme = useThemeStore((s) => s.setTheme);
-  const applyTheme = useThemeStore((s) => s.applyTheme);
+  const { theme, hydrated } = useThemeStore();
 
+  // Hydrate theme from localStorage on mount
   useEffect(() => {
-    const stored = (localStorage.getItem("theme") as Theme) || "system";
-    setTheme(stored);
+    // Add class to disable transitions during initial load
+    document.documentElement.classList.add("no-transition");
 
-    if (stored === "system") {
-      const media = window.matchMedia("(prefers-color-scheme: dark)");
-      const handler = () => applyTheme("system");
-      media.addEventListener("change", handler);
-      return () => media.removeEventListener("change", handler);
+    hydrateThemeStore();
+
+    // Re-enable transitions after a short delay
+    setTimeout(() => {
+      document.documentElement.classList.remove("no-transition");
+    }, 50);
+  }, []);
+
+  // Apply theme when hydrated or theme changes
+  useEffect(() => {
+    if (!hydrated) return;
+
+    const applyTheme = (theme: Theme) => {
+      const isDark =
+        theme === "dark" ||
+        (theme === "system" &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+      if (isDark) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    };
+
+    applyTheme(theme);
+
+    // Listen for system theme changes
+    if (theme === "system") {
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      const handleChange = () => applyTheme("system");
+
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
     }
-  }, [setTheme, applyTheme]);
+  }, [theme, hydrated]);
 
   return <>{children}</>;
 }
