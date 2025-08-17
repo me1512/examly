@@ -4,6 +4,9 @@ import { motion } from "framer-motion";
 import { BookOpen, Menu, X } from "lucide-react";
 import { useState } from "react";
 import ThemeToggle from "@/components/ui/ThemeToggle";
+import Image from "next/image";
+import Logo from "@/public/logo.png";
+import Link from "next/link";
 
 export const NavItems = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -17,10 +20,9 @@ export const NavItems = () => {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-purple-600">
-              <BookOpen className="h-5 w-5 text-white" />
+            <div className="flex h-8 w-32 items-center justify-center rounded-lg p-2 dark:bg-gray-600">
+              <Image src={Logo} alt="Examly Logo" width={192} height={192} />
             </div>
-            <span className="text-xl font-bold">Examly</span>
           </motion.div>
 
           {/* Desktop Menu */}
@@ -93,9 +95,12 @@ export const NavItems = () => {
             >
               Pricing
             </a>
-            <button className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-2 text-white">
+            <Link
+              href={"/login"}
+              className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-2 text-white"
+            >
               Login
-            </button>
+            </Link>
             <ThemeToggle />
           </div>
         </motion.div>

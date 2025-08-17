@@ -6,6 +6,8 @@ import Footer from "@/components/navigation/Footer";
 import { fontSans } from "@/config/fonts";
 import { fontMono } from "@/config/fonts";
 import { cn } from "@/lib/utils";
+import QueryClientProviderWrapper from "@/provider/QueryClientProviderWrapper";
+import Navbar from "@/components/layout/Navbar";
 
 export const metadata: Metadata = {
   title: "Examly App",
@@ -39,9 +41,11 @@ export default function RootLayout({
       <body className={cn("antialiased", fontSans.variable, fontMono.variable)}>
         {/* No script - let React handle everything */}
         <ThemeProvider>
-          <NavItems />
-          {children}
-          <Footer />
+          <QueryClientProviderWrapper>
+            <Navbar />
+            {children}
+            <Footer />
+          </QueryClientProviderWrapper>
         </ThemeProvider>
       </body>
     </html>
