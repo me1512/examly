@@ -1,8 +1,8 @@
 // hooks/useAuthMutations.ts
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AuthService } from "@/lib/firebase/auth";
-import { LoginCredentials, RegisterCredentials, AuthUser } from "@/types/auth";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from "@/stores/authStore";
+import { AuthUser, LoginCredentials, RegisterCredentials } from "@/types/auth";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 
 export const useAuthMutations = () => {

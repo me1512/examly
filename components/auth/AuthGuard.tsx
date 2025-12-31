@@ -9,7 +9,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 interface AuthGuardProps {
   children: ReactNode;
-  requiredRole?: UserRole;
+  requiredRole?: UserRole | UserRole[]; // Updated to accept both single role and array of roles
   requireAuth?: boolean;
   redirectTo?: string;
 }
@@ -18,7 +18,7 @@ export const AuthGuard = ({
   children,
   requiredRole,
   requireAuth = true,
-  redirectTo = "/login", // Corrected default redirect path
+  redirectTo = "/login",
 }: AuthGuardProps) => {
   const { user, isLoading, isInitialized, hasRole } = useAuth();
   const router = useRouter();
@@ -31,9 +31,15 @@ export const AuthGuard = ({
       return;
     }
 
-    if (requiredRole && !hasRole(requiredRole)) {
-      router.push("/unauthorized");
-      return;
+    // Handle both single role and array of roles
+    if (requiredRole) {
+      const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+      const hasRequiredRole = roles.some((role) => hasRole(role));
+
+      if (!hasRequiredRole) {
+        router.push("/unauthorized");
+        return;
+      }
     }
   }, [
     user,
@@ -54,8 +60,13 @@ export const AuthGuard = ({
     return null;
   }
 
-  if (requiredRole && !hasRole(requiredRole)) {
-    return null;
+  if (requiredRole) {
+    const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+    const hasRequiredRole = roles.some((role) => hasRole(role));
+
+    if (!hasRequiredRole) {
+      return null;
+    }
   }
 
   return <>{children}</>;

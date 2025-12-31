@@ -1,12 +1,7 @@
 // types/auth.ts
 // import { User } from "firebase/auth";
 
-export type UserRole =
-  | "guest"
-  | "student"
-  | "teacher"
-  | "admin"
-  | "super-admin";
+export type UserRole = "student" | "teacher" | "admin" | "super-admin";
 
 export interface AuthUser {
   uid: string;

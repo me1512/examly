@@ -225,7 +225,6 @@ export class AuthService {
     if (!user) return false;
 
     const roleHierarchy: Record<UserRole, number> = {
-      guest: 0,
       student: 1,
       teacher: 2,
       admin: 3,
