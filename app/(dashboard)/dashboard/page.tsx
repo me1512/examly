@@ -1,71 +1,37 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import {
-  DashboardData,
-  DashboardStats,
-  Enrollment,
-  User,
-} from "@/types/dashboard";
+import { DashboardData, DashboardStats, Enrollment } from "@/types/dashboard";
 import MyEnrollments from "@/components/dashboard/MyEnrollments";
 import RecentCourses from "@/components/dashboard/RecentCourses";
 import QuickActions from "@/components/dashboard/QuickActions";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import StatsCard from "@/components/dashboard/StatsCard";
-import {
-  generateMockDashboardData,
-  getRoleBasedWelcomeMessage,
-} from "@/components/dashboard/Helper";
+import { getRoleBasedWelcomeMessage } from "@/components/dashboard/Helper";
+import { useMockDashboardData } from "@/hooks/useApiQueries";
 
 export default function DashboardPage() {
-  const { user, isLoading: loading } = useAuth();
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(
-    null,
+  const { user } = useAuth();
+
+  // Use React Query for data fetching
+  // This automatically handles loading states, caching, and deduping
+  const { data: dashboardData, isLoading } = useMockDashboardData(
+    user?.role || "student",
   );
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Simulate API call to fetch dashboard data
-    const fetchDashboardData = async () => {
-      setIsLoading(true);
-
-      // Mock data - replace with actual API calls
-      setTimeout(() => {
-        const mockData = {
-          ...generateMockDashboardData(user?.role || "student"), // This already includes recentCourses, recentActivity, enrollments, and stats
-          user: user as unknown as User, // Add the user object to the mock data
-          analytics: {}, // Add dummy analytics data (ensure it matches Analytics interface)
-          notifications: [], // Add dummy notifications array
-          mockData: {}, // Add dummy mockData to satisfy the interface
-        } as unknown as DashboardData;
-        setDashboardData(mockData);
-        setIsLoading(false);
-      }, 1000);
-    };
-
-    if (user) {
-      fetchDashboardData();
-    }
-  }, [user]);
-
-  if (loading || isLoading) {
+  if (isLoading || !dashboardData) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <LoadingSpinner />
+      <div className="flex h-96 w-full items-center justify-center">
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
 
-  if (!user || !dashboardData) {
-    return (
-      <div className="text-center text-gray-500 dark:text-gray-400">
-        Failed to load dashboard data
-      </div>
-    );
-  }
+  // Type assertion since the mock data generator returns a loose object
+  // In a real app, the API response would match the interface
+  const typedData = dashboardData as unknown as DashboardData;
 
   return (
     <div className="space-y-8">
@@ -73,12 +39,14 @@ export default function DashboardPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white"
+        className="rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white shadow-lg"
       >
         <h1 className="mb-2 text-3xl font-bold">
-          Welcome back, {user.displayName}!
+          Welcome back, {user?.displayName || "Student"}!
         </h1>
-        <p className="text-blue-100">{getRoleBasedWelcomeMessage(user.role)}</p>
+        <p className="text-blue-100">
+          {getRoleBasedWelcomeMessage(user?.role || "student")}
+        </p>
       </motion.div>
 
       {/* Stats Grid */}
@@ -88,7 +56,7 @@ export default function DashboardPage() {
         transition={{ delay: 0.1 }}
         className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4"
       >
-        {dashboardData.stats.map((stat: DashboardStats, index: number) => (
+        {typedData.stats.map((stat: DashboardStats, index: number) => (
           <StatsCard key={stat.title} stat={stat} index={index} />
         ))}
       </motion.div>
@@ -99,11 +67,11 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="lg:col-span-2" // This line is already present in the original code, no change needed.
+          className="lg:col-span-2"
         >
           <RecentActivity
-            activities={dashboardData.recentActivity}
-            userRole={user.role}
+            activities={typedData.recentActivity}
+            userRole={user?.role || "student"}
           />
         </motion.div>
 
@@ -113,32 +81,33 @@ export default function DashboardPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <QuickActions userRole={user.role} />
+          <QuickActions userRole={user?.role || "student"} />
         </motion.div>
       </div>
 
       {/* Role-specific content */}
-      {user.role !== "student" && (
+      {user?.role !== "student" && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
           <RecentCourses
-            courses={dashboardData.recentCourses}
-            userRole={user.role}
+            courses={typedData.recentCourses}
+            userRole={user?.role || "student"}
           />
         </motion.div>
       )}
 
-      {user.role === "student" && (
+      {user?.role === "student" && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
+          {/* Note: The mock helper uses 'recentEnrollments' but interface might expect 'enrollments' */}
           <MyEnrollments
-            enrollments={dashboardData.recentEnrollments as Enrollment[]}
+            enrollments={typedData.recentEnrollments as Enrollment[]}
           />
         </motion.div>
       )}

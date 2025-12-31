@@ -2,7 +2,7 @@
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signInWithPopup,
+  signInWithRedirect, // Switch to Redirect
   GoogleAuthProvider,
   signOut,
   sendPasswordResetEmail,
@@ -51,27 +51,18 @@ export class AuthService {
     }
   }
 
-  // Sign in with Google
-  static async signInWithGoogle(): Promise<AuthUser> {
+  // Sign in with Google (Redirect Flow)
+  static async signInWithGoogle(): Promise<void> {
     try {
-      const userCredential: UserCredential = await signInWithPopup(
-        auth,
-        googleProvider,
-      );
-      const user = await this.getUserData(userCredential.user);
-
-      // Check if this is a new user and create profile if needed
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (!userDoc.exists()) {
-        await this.createUserProfile(userCredential.user, { role: "student" });
-      }
-
-      return user;
+      // Use Redirect to bypass COOP/Popup blocking issues
+      await signInWithRedirect(auth, googleProvider);
+      // Logic continues when user returns to the page (handled in useAuth)
     } catch (error) {
       throw this.handleAuthError(error);
     }
   }
 
+  // ... (Rest of file: register, createUserProfile, getUserData, signOut, etc. - KEEP AS IS) ...
   // Register with email and password
   static async registerWithCredentials(
     credentials: RegisterCredentials,
@@ -88,19 +79,16 @@ export class AuthService {
       const userCredential: UserCredential =
         await createUserWithEmailAndPassword(auth, email, password);
 
-      // Update profile with display name
       await updateProfile(userCredential.user, {
         displayName: `${firstName} ${lastName}`,
       });
 
-      // Create user document in Firestore
       await this.createUserProfile(userCredential.user, {
         role,
         firstName,
         lastName,
       });
 
-      // Send email verification
       await sendEmailVerification(userCredential.user);
 
       const user = await this.getUserData(userCredential.user);
@@ -110,7 +98,6 @@ export class AuthService {
     }
   }
 
-  // Create user profile in Firestore
   static async createUserProfile(
     firebaseUser: User,
     additionalData: {
@@ -141,7 +128,6 @@ export class AuthService {
     await setDoc(userRef, userData);
   }
 
-  // Get user data from Firestore
   static async getUserData(firebaseUser: User): Promise<AuthUser> {
     const userRef = doc(db, "users", firebaseUser.uid);
     const userSnap = await getDoc(userRef);
@@ -161,13 +147,11 @@ export class AuthService {
         profile: userData.profile,
       };
     } else {
-      // Create a basic user profile if it doesn't exist
       await this.createUserProfile(firebaseUser, { role: "student" });
       return this.getUserData(firebaseUser);
     }
   }
 
-  // Sign out
   static async signOut(): Promise<void> {
     try {
       await signOut(auth);
@@ -176,7 +160,6 @@ export class AuthService {
     }
   }
 
-  // Reset password
   static async resetPassword(email: string): Promise<void> {
     try {
       await sendPasswordResetEmail(auth, email);
@@ -185,7 +168,6 @@ export class AuthService {
     }
   }
 
-  // Update password
   static async updateUserPassword(newPassword: string): Promise<void> {
     try {
       if (!auth.currentUser) throw new Error("No authenticated user");
@@ -195,11 +177,9 @@ export class AuthService {
     }
   }
 
-  // Update user profile
   static async updateUserProfile(updates: Partial<AuthUser>): Promise<void> {
     try {
       if (!auth.currentUser) throw new Error("No authenticated user");
-
       const userRef = doc(db, "users", auth.currentUser.uid);
       await updateDoc(userRef, {
         ...updates,
@@ -210,7 +190,6 @@ export class AuthService {
     }
   }
 
-  // Send email verification
   static async sendVerificationEmail(): Promise<void> {
     try {
       if (!auth.currentUser) throw new Error("No authenticated user");
@@ -220,17 +199,14 @@ export class AuthService {
     }
   }
 
-  // Role checking utilities
   static hasRole(user: AuthUser | null, requiredRole: UserRole): boolean {
     if (!user) return false;
-
     const roleHierarchy: Record<UserRole, number> = {
       student: 1,
       teacher: 2,
       admin: 3,
       "super-admin": 4,
     };
-
     return roleHierarchy[user.role] >= roleHierarchy[requiredRole];
   }
 
@@ -250,38 +226,42 @@ export class AuthService {
     return this.hasRole(user, "student");
   }
 
-  // Error handling
   private static handleAuthError(error: unknown) {
-    console.error("Auth Error:", error);
-
+    // console.error("Auth Error:", error); 
     if (typeof error === "object" && error !== null && "code" in error) {
       const code = (error as { code: string }).code;
       switch (code) {
+        case "auth/invalid-credential": 
         case "auth/user-not-found":
-          return new Error("No account found with this email address");
         case "auth/wrong-password":
-          return new Error("Incorrect password");
+          return new Error("Invalid email or password.");
         case "auth/email-already-in-use":
-          return new Error("An account with this email already exists");
+          return new Error("An account with this email already exists.");
         case "auth/weak-password":
-          return new Error("Password is too weak");
+          return new Error("Password is too weak. Please use at least 6 characters.");
         case "auth/invalid-email":
-          return new Error("Invalid email address");
+          return new Error("Please enter a valid email address.");
         case "auth/user-disabled":
-          return new Error("This account has been disabled");
+          return new Error("This account has been disabled. Please contact support.");
         case "auth/too-many-requests":
-          return new Error("Too many failed attempts. Please try again later");
+          return new Error("Too many failed attempts. Please try again later.");
         case "auth/popup-closed-by-user":
-          return new Error("Sign-in cancelled");
+          return new Error("Sign-in was cancelled.");
         case "auth/popup-blocked":
-          return new Error("Popup blocked by browser");
+          return new Error("Pop-up was blocked by your browser. Please allow pop-ups for this site.");
+        case "auth/network-request-failed":
+          return new Error("Network error. Check your connection.");
+        case "auth/operation-not-allowed":
+          return new Error("Google Sign-In is not enabled in Firebase Console.");
+        case "auth/unauthorized-domain":
+          return new Error("This domain is not authorized in Firebase Console.");
         default:
           return new Error(
             (error as { message?: string }).message ||
-              "An unexpected error occurred",
+              "An unexpected error occurred. Please try again.",
           );
       }
     }
-    return new Error("An unexpected error occurred");
+    return new Error("An unexpected error occurred.");
   }
 }

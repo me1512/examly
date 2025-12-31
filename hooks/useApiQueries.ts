@@ -17,8 +17,12 @@ import {
   notificationService,
   searchService,
 } from "@/lib/api/services";
-import { Course, Lesson, Assessment, User } from "@/types/dashboard";
+// Use STRICT types for Course related operations to match Services
+import { Course, Lesson } from "@/types/course";
+// Keep Dashboard types for Read-Only views or where strict typing isn't enforced yet
+import { Assessment, User, Notification } from "@/types/dashboard";
 import { UserRole } from "@/types/auth";
+import { generateMockDashboardData } from "@/components/dashboard/Helper";
 
 // Query Keys
 export const queryKeys = {
@@ -73,16 +77,7 @@ export const queryKeys = {
 };
 
 // Course Hooks
-export const useCourses = (params?: {
-  page?: number;
-  limit?: number;
-  search?: string;
-  category?: string;
-  difficulty?: string;
-  status?: string;
-  sortBy?: string;
-  sortOrder?: string;
-}) => {
+export const useCourses = (params?: any) => {
   return useQuery({
     queryKey: [...queryKeys.courses, params],
     queryFn: () => courseService.getCourses(params),
@@ -123,7 +118,7 @@ export const useCreateCourse = () => {
     mutationFn: courseService.createCourse,
     onSuccess: (newCourse) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.courses });
-      toast.success(`Course ${newCourse.title}} created successfully!`);
+      toast.success(`Course created successfully!`);
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to create course");
@@ -218,11 +213,12 @@ export const useCreateLesson = () => {
       lessonData,
     }: {
       courseId: string;
-      lessonData: Omit<Lesson, "id" | "createdAt" | "updatedAt">;
+      lessonData: any; 
     }) => lessonService.createLesson(courseId, lessonData),
-    onSuccess: (newLesson) => {
+    // Use variables (second argument) to get courseId safely
+    onSuccess: (newLesson, variables) => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.lessons(newLesson.courseId),
+        queryKey: queryKeys.lessons(variables.courseId),
       });
       toast.success("Lesson created successfully!");
     },
@@ -245,13 +241,14 @@ export const useUpdateLesson = () => {
       lessonId: string;
       updates: Partial<Lesson>;
     }) => lessonService.updateLesson(courseId, lessonId, updates),
-    onSuccess: (updatedLesson) => {
+    // FIXED: Use variables.courseId instead of updatedLesson.courseId
+    onSuccess: (updatedLesson, variables) => {
       queryClient.setQueryData(
-        queryKeys.lesson(updatedLesson.courseId, updatedLesson.id),
+        queryKeys.lesson(variables.courseId, updatedLesson.id),
         updatedLesson,
       );
       queryClient.invalidateQueries({
-        queryKey: queryKeys.lessons(updatedLesson.courseId),
+        queryKey: queryKeys.lessons(variables.courseId),
       });
       toast.success("Lesson updated successfully!");
     },
@@ -341,11 +338,12 @@ export const useCreateAssessment = () => {
       assessmentData,
     }: {
       courseId: string;
-      assessmentData: Omit<Assessment, "id" | "createdAt" | "updatedAt">;
+      assessmentData: any;
     }) => assessmentService.createAssessment(courseId, assessmentData),
-    onSuccess: (newAssessment) => {
+    onSuccess: (newAssessment, variables) => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.assessments(newAssessment.courseId),
+        // Use variables.courseId if newAssessment doesn't return it
+        queryKey: queryKeys.assessments(variables.courseId),
       });
       toast.success("Assessment created successfully!");
     },
@@ -615,3 +613,16 @@ export const usePrefetchCourse = () => {
     });
   };
 };
+
+export const useMockDashboardData = (role: UserRole) => {
+  return useQuery({
+    queryKey: ["dashboard", "mock", role],
+    queryFn: async () => {
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return generateMockDashboardData(role);
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    refetchOnWindowFocus: false,
+  });
+}

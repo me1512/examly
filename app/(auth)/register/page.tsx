@@ -17,16 +17,31 @@ const Registerpage = () => {
     }
   }, [user, isInitialized, router]);
 
+  // Shared layout classes
+  const containerClasses =
+    "min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-100 py-16 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900";
+  const bgPatternClasses =
+    "bg-grid-slate-100 dark:bg-grid-slate-700/25 absolute inset-0 [mask-image:radial-gradient(ellipse_at_center,white,transparent_75%)] bg-[size:20px_20px]";
+  const contentClasses =
+    "relative flex min-h-screen items-center justify-center px-4 py-12";
+
   if (!isInitialized || user) {
-    return <LoadingSpinner />;
+    return (
+      <div className={containerClasses}>
+        <div className={bgPatternClasses} />
+        <div className={contentClasses}>
+          <LoadingSpinner size="lg" />
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-100 py-16 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+    <div className={containerClasses}>
       {/* Background Pattern */}
-      <div className="bg-grid-slate-100 dark:bg-grid-slate-700/25 absolute inset-0 [mask-image:radial-gradient(ellipse_at_center,white,transparent_75%)] bg-[size:20px_20px]" />
+      <div className={bgPatternClasses} />
 
-      <div className="relative flex min-h-screen items-center justify-center px-4 py-12">
+      <div className={contentClasses}>
         <div className="w-full max-w-md space-y-8">
           {/* Logo/Brand Area */}
           <div className="text-center">

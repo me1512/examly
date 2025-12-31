@@ -1,562 +1,310 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import { apiClient } from "./client";
+
+// Import Course-related types from 'types/course' to match the Store
 import {
   Course,
+  CourseFilters,
+  CreateCourseRequest,
+  UpdateCourseRequest,
+  PaginatedResponse,
   Lesson,
-  Assessment,
+  Quiz,
   Enrollment,
+} from "@/types/course";
+
+// Import other types from 'types/dashboard' or 'types/auth'
+import {
   User,
   StudentProgress,
   AssessmentSubmission,
   Analytics,
   Notification,
+  Assessment, // Keeping generic Assessment from dashboard if not present in course
 } from "@/types/dashboard";
 
-// Base API configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
+import { UserRole } from "@/types/auth";
 
-class ApiError extends Error {
-  constructor(
-    message: string,
-    public status: number,
-    public code?: string,
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
+// Re-export ApiError for consumers
+export { ApiError } from "./client";
 
-// Generic API client
-class ApiClient {
-  private baseURL: string;
+// Types for payloads
+type CreateLessonPayload = Omit<Lesson, "id" | "createdAt" | "updatedAt">;
+type CreateAssessmentPayload = Omit<Assessment, "id" | "createdAt" | "updatedAt">;
+type UpdateLessonPayload = Partial<Lesson>;
+type UpdateAssessmentPayload = Partial<Assessment>;
+type LessonProgressPayload = {
+  completed?: boolean;
+  timeSpent?: number;
+  score?: number;
+};
+type InviteUserPayload = {
+  email: string;
+  name: string;
+  role: UserRole;
+};
 
-  constructor(baseURL: string) {
-    this.baseURL = baseURL;
-  }
-
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {},
-  ): Promise<T> {
-    const url = `${this.baseURL}${endpoint}`;
-
-    const config: RequestInit = {
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-      ...options,
-    };
-
-    // Add authentication token if available
-    const token = localStorage.getItem("auth_token");
-    if (token) {
-      config.headers = {
-        ...config.headers,
-        Authorization: `Bearer ${token}`,
-      };
-    }
-
-    try {
-      const response = await fetch(url, config);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new ApiError(
-          errorData.message || "An error occurred",
-          response.status,
-          errorData.code,
-        );
-      }
-
-      // Handle empty responses
-      if (response.status === 204) {
-        return {} as T;
-      }
-
-      return await response.json();
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-
-      throw new ApiError(
-        error instanceof Error ? error.message : "Network error",
-        0,
-      );
-    }
-  }
-
-  async get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
-    const url = params
-      ? `${endpoint}?${new URLSearchParams(params)}`
-      : endpoint;
-    return this.request<T>(url);
-  }
-
-  async post<T>(endpoint: string, data?: any): Promise<T> {
-    return this.request<T>(endpoint, {
-      method: "POST",
-      body: data ? JSON.stringify(data) : undefined,
-    });
-  }
-
-  async put<T>(endpoint: string, data?: any): Promise<T> {
-    return this.request<T>(endpoint, {
-      method: "PUT",
-      body: data ? JSON.stringify(data) : undefined,
-    });
-  }
-
-  async patch<T>(endpoint: string, data?: any): Promise<T> {
-    return this.request<T>(endpoint, {
-      method: "PATCH",
-      body: data ? JSON.stringify(data) : undefined,
-    });
-  }
-
-  async delete<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, {
-      method: "DELETE",
-    });
-  }
-
-  async upload<T>(endpoint: string, formData: FormData): Promise<T> {
-    const token = localStorage.getItem("auth_token");
-    const headers: Record<string, string> = {};
-
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
-      method: "POST",
-      headers,
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new ApiError(
-        errorData.message || "Upload failed",
-        response.status,
-        errorData.code,
-      );
-    }
-
-    return await response.json();
-  }
-}
-
-const apiClient = new ApiClient(API_BASE_URL);
-
-// Course Services
+// --- Course Services ---
 export const courseService = {
-  // Get all courses with filters
-  getCourses: (params?: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    category?: string;
-    difficulty?: string;
-    status?: string;
-    sortBy?: string;
-    sortOrder?: string;
-  }): Promise<{
-    courses: Course[];
-    total: number;
-    page: number;
-    limit: number;
-  }> => apiClient.get("/courses", params),
+  getCourses: (
+    filters: CourseFilters = {},
+    page = 1,
+    limit = 12,
+  ): Promise<PaginatedResponse<Course>> => {
+    // Explicitly cast to Record<string, unknown> for the apiClient
+    const params: Record<string, unknown> = {
+      page,
+      limit,
+      ...filters,
+    };
+    return apiClient.get("/courses", params);
+  },
 
-  // Get courses by instructor
-  getCoursesByInstructor: (instructorId: string): Promise<Course[]> =>
-    apiClient.get(`/courses/instructor/${instructorId}`),
+  getCourse: (id: string) => apiClient.get<Course>(`/courses/${id}`),
 
-  // Get enrolled courses for a student
-  getEnrolledCourses: (studentId: string): Promise<Course[]> =>
-    apiClient.get(`/courses/enrolled/${studentId}`),
+  createCourse: (data: CreateCourseRequest | FormData) => {
+    if (data instanceof FormData) {
+      return apiClient.upload<Course>("/courses", data);
+    }
+    return apiClient.post<Course>("/courses", data);
+  },
 
-  // Get single course by ID
-  getCourse: (id: string): Promise<Course> => apiClient.get(`/courses/${id}`),
+  updateCourse: (id: string, data: UpdateCourseRequest | Partial<Course>) =>
+    apiClient.patch<Course>(`/courses/${id}`, data),
 
-  // Create new course
-  createCourse: (
-    courseData: Omit<Course, "id" | "createdAt" | "updatedAt">,
-  ): Promise<Course> => apiClient.post("/courses", courseData),
+  deleteCourse: (id: string) => apiClient.delete<void>(`/courses/${id}`),
 
-  // Update course
-  updateCourse: (id: string, updates: Partial<Course>): Promise<Course> =>
-    apiClient.patch(`/courses/${id}`, updates),
+  togglePublishCourse: (id: string, isPublished: boolean) =>
+    apiClient.patch<Course>(`/courses/${id}/publish`, { isPublished }),
 
-  // Delete course
-  deleteCourse: (id: string): Promise<void> =>
-    apiClient.delete(`/courses/${id}`),
+  getCoursesByInstructor: (instructorId: string) =>
+    apiClient.get<Course[]>(`/courses/instructor/${instructorId}`),
 
-  // Publish/unpublish course
-  togglePublishCourse: (id: string, isPublished: boolean): Promise<Course> =>
-    apiClient.patch(`/courses/${id}/publish`, { isPublished }),
+  getEnrolledCourses: (studentId: string) =>
+    apiClient.get<Course[]>(`/courses/enrolled/${studentId}`),
 
-  // Duplicate course
-  duplicateCourse: (id: string, title: string): Promise<Course> =>
-    apiClient.post(`/courses/${id}/duplicate`, { title }),
+  searchCourses: (query: string) =>
+    apiClient.get<Course[]>("/courses/search", { q: query }),
 
-  // Upload course thumbnail
-  uploadThumbnail: (
-    id: string,
-    file: File,
-  ): Promise<{ thumbnailUrl: string }> => {
+  duplicateCourse: (id: string, title: string) =>
+    apiClient.post<Course>(`/courses/${id}/duplicate`, { title }),
+
+  uploadThumbnail: (id: string, file: File) => {
     const formData = new FormData();
     formData.append("thumbnail", file);
-    return apiClient.upload(`/courses/${id}/thumbnail`, formData);
+    return apiClient.upload<{ thumbnailUrl: string }>(
+      `/courses/${id}/thumbnail`,
+      formData,
+    );
   },
 };
 
-// Lesson Services
+// --- Lesson Services ---
 export const lessonService = {
-  // Get lessons for a course
-  getLessons: (courseId: string): Promise<Lesson[]> =>
-    apiClient.get(`/courses/${courseId}/lessons`),
+  getLessons: (courseId: string) =>
+    apiClient.get<Lesson[]>(`/courses/${courseId}/lessons`),
 
-  // Get single lesson
-  getLesson: (courseId: string, lessonId: string): Promise<Lesson> =>
-    apiClient.get(`/courses/${courseId}/lessons/${lessonId}`),
+  getLesson: (courseId: string, lessonId: string) =>
+    apiClient.get<Lesson>(`/courses/${courseId}/lessons/${lessonId}`),
 
-  // Create lesson
-  createLesson: (
-    courseId: string,
-    lessonData: Omit<Lesson, "id" | "createdAt" | "updatedAt">,
-  ): Promise<Lesson> =>
-    apiClient.post(`/courses/${courseId}/lessons`, lessonData),
+  createLesson: (courseId: string, data: CreateLessonPayload) =>
+    apiClient.post<Lesson>(`/courses/${courseId}/lessons`, data),
 
-  // Update lesson
-  updateLesson: (
-    courseId: string,
-    lessonId: string,
-    updates: Partial<Lesson>,
-  ): Promise<Lesson> =>
-    apiClient.patch(`/courses/${courseId}/lessons/${lessonId}`, updates),
+  updateLesson: (courseId: string, lessonId: string, data: UpdateLessonPayload) =>
+    apiClient.patch<Lesson>(`/courses/${courseId}/lessons/${lessonId}`, data),
 
-  // Delete lesson
-  deleteLesson: (courseId: string, lessonId: string): Promise<void> =>
-    apiClient.delete(`/courses/${courseId}/lessons/${lessonId}`),
+  deleteLesson: (courseId: string, lessonId: string) =>
+    apiClient.delete<void>(`/courses/${courseId}/lessons/${lessonId}`),
 
-  // Reorder lessons
-  reorderLessons: (courseId: string, lessonIds: string[]): Promise<Lesson[]> =>
-    apiClient.put(`/courses/${courseId}/lessons/reorder`, { lessonIds }),
+  reorderLessons: (courseId: string, lessonIds: string[]) =>
+    apiClient.put<Lesson[]>(`/courses/${courseId}/lessons/reorder`, {
+      lessonIds,
+    }),
 
-  // Upload lesson video
-  uploadVideo: (
-    courseId: string,
-    lessonId: string,
-    file: File,
-  ): Promise<{ videoUrl: string }> => {
+  uploadVideo: (courseId: string, lessonId: string, file: File) => {
     const formData = new FormData();
     formData.append("video", file);
-    return apiClient.upload(
+    return apiClient.upload<{ videoUrl: string }>(
       `/courses/${courseId}/lessons/${lessonId}/video`,
       formData,
     );
   },
 
-  // Upload lesson attachments
-  uploadAttachments: (
-    courseId: string,
-    lessonId: string,
-    files: File[],
-  ): Promise<{ attachments: any[] }> => {
+  uploadAttachments: (courseId: string, lessonId: string, files: File[]) => {
     const formData = new FormData();
     files.forEach((file, index) => {
       formData.append(`attachment_${index}`, file);
     });
-    return apiClient.upload(
+    return apiClient.upload<{ attachments: { id: string; url: string; name: string }[] }>(
       `/courses/${courseId}/lessons/${lessonId}/attachments`,
       formData,
     );
   },
 };
 
-// Assessment Services
+// --- Assessment/Quiz Services ---
 export const assessmentService = {
-  // Get assessments for a course
-  getAssessments: (courseId: string): Promise<Assessment[]> =>
-    apiClient.get(`/courses/${courseId}/assessments`),
+  getAssessments: (courseId: string) =>
+    apiClient.get<Assessment[]>(`/courses/${courseId}/assessments`),
 
-  // Get single assessment
-  getAssessment: (
-    courseId: string,
-    assessmentId: string,
-  ): Promise<Assessment> =>
-    apiClient.get(`/courses/${courseId}/assessments/${assessmentId}`),
+  getAssessment: (courseId: string, assessmentId: string) =>
+    apiClient.get<Assessment>(`/courses/${courseId}/assessments/${assessmentId}`),
 
-  // Create assessment
-  createAssessment: (
-    courseId: string,
-    assessmentData: Omit<Assessment, "id" | "createdAt" | "updatedAt">,
-  ): Promise<Assessment> =>
-    apiClient.post(`/courses/${courseId}/assessments`, assessmentData),
+  createAssessment: (courseId: string, data: CreateAssessmentPayload) =>
+    apiClient.post<Assessment>(`/courses/${courseId}/assessments`, data),
 
-  // Update assessment
-  updateAssessment: (
-    courseId: string,
-    assessmentId: string,
-    updates: Partial<Assessment>,
-  ): Promise<Assessment> =>
-    apiClient.patch(
+  updateAssessment: (courseId: string, assessmentId: string, data: UpdateAssessmentPayload) =>
+    apiClient.patch<Assessment>(
       `/courses/${courseId}/assessments/${assessmentId}`,
-      updates,
+      data,
     ),
 
-  // Delete assessment
-  deleteAssessment: (courseId: string, assessmentId: string): Promise<void> =>
-    apiClient.delete(`/courses/${courseId}/assessments/${assessmentId}`),
+  deleteAssessment: (courseId: string, assessmentId: string) =>
+    apiClient.delete<void>(`/courses/${courseId}/assessments/${assessmentId}`),
 
-  // Get assessment submissions
-  getSubmissions: (assessmentId: string): Promise<AssessmentSubmission[]> =>
-    apiClient.get(`/assessments/${assessmentId}/submissions`),
+  getSubmissions: (assessmentId: string) =>
+    apiClient.get<AssessmentSubmission[]>(
+      `/assessments/${assessmentId}/submissions`,
+    ),
 
-  // Submit assessment
-  submitAssessment: (
-    assessmentId: string,
-    answers: Record<string, any>,
-  ): Promise<AssessmentSubmission> =>
-    apiClient.post(`/assessments/${assessmentId}/submit`, { answers }),
+  submitAssessment: (assessmentId: string, answers: Record<string, unknown>) =>
+    apiClient.post<AssessmentSubmission>(
+      `/assessments/${assessmentId}/submit`,
+      { answers },
+    ),
 
-  // Grade submission
-  gradeSubmission: (
-    submissionId: string,
-    score: number,
-    feedback?: string,
-  ): Promise<AssessmentSubmission> =>
-    apiClient.patch(`/submissions/${submissionId}/grade`, { score, feedback }),
+  // Quiz specific aliases
+  getQuiz: (quizId: string) => apiClient.get<Quiz>(`/quizzes/${quizId}`),
+
+  submitQuizAttempt: (
+    quizId: string,
+    answers: Record<string, string | string[]>,
+  ) =>
+    apiClient.post<{
+      score: number;
+      percentage: number;
+      passed: boolean;
+      answers: Array<{
+        questionId: string;
+        userAnswer: string | string[];
+        isCorrect: boolean;
+        points: number;
+      }>;
+    }>(`/quizzes/${quizId}/submit`, { answers }),
 };
 
-// Enrollment Services
+// --- Enrollment Services ---
 export const enrollmentService = {
-  // Get enrollments
   getEnrollments: (params?: {
     courseId?: string;
     userId?: string;
     status?: string;
-  }): Promise<Enrollment[]> => apiClient.get("/enrollments", params),
+  }) => apiClient.get<Enrollment[]>("/enrollments", params),
 
-  // Enroll student in course
-  enrollStudent: (courseId: string, userId: string): Promise<Enrollment> =>
-    apiClient.post("/enrollments", { courseId, userId }),
+  enrollInCourse: (courseId: string) =>
+    apiClient.post<Enrollment>("/enrollments", { courseId }),
 
-  // Update enrollment
-  updateEnrollment: (
-    id: string,
-    updates: Partial<Enrollment>,
-  ): Promise<Enrollment> => apiClient.patch(`/enrollments/${id}`, updates),
+  enrollStudent: (courseId: string, userId: string) =>
+    apiClient.post<Enrollment>("/enrollments", { courseId, userId }),
 
-  // Unenroll student
-  unenrollStudent: (id: string): Promise<void> =>
-    apiClient.delete(`/enrollments/${id}`),
+  updateEnrollment: (id: string, updates: Partial<Enrollment>) =>
+    apiClient.patch<Enrollment>(`/enrollments/${id}`, updates),
 
-  // Bulk enroll students
-  bulkEnrollStudents: (
-    courseId: string,
-    userIds: string[],
-  ): Promise<Enrollment[]> =>
-    apiClient.post("/enrollments/bulk", { courseId, userIds }),
+  unenrollStudent: (id: string) => apiClient.delete<void>(`/enrollments/${id}`),
 };
 
-// Progress Services
+// --- Progress Services ---
 export const progressService = {
-  // Get student progress for a course
-  getStudentProgress: (
-    userId: string,
-    courseId: string,
-  ): Promise<StudentProgress[]> =>
-    apiClient.get(`/progress/${userId}/${courseId}`),
+  getStudentProgress: (userId: string, courseId: string) =>
+    apiClient.get<StudentProgress[]>(`/progress/${userId}/${courseId}`),
 
-  // Update lesson progress
   updateLessonProgress: (
     userId: string,
     courseId: string,
     lessonId: string,
-    progressData: {
-      completed?: boolean;
-      timeSpent?: number;
-      score?: number;
-    },
-  ): Promise<StudentProgress> =>
-    apiClient.patch(
+    data: LessonProgressPayload,
+  ) =>
+    apiClient.patch<StudentProgress>(
       `/progress/${userId}/${courseId}/${lessonId}`,
-      progressData,
+      data,
     ),
 
-  // Get course completion certificate
-  getCertificate: (
-    userId: string,
-    courseId: string,
-  ): Promise<{ certificateUrl: string }> =>
-    apiClient.get(`/progress/${userId}/${courseId}/certificate`),
+  getCourseProgress: (courseId: string) =>
+    apiClient.get<StudentProgress[]>(`/progress/course/${courseId}`),
+
+  markLessonComplete: (lessonId: string) =>
+    apiClient.post<StudentProgress>(`/progress/lesson/${lessonId}/complete`, {}),
 };
 
-// User Services
+// --- User Services ---
 export const userService = {
-  // Get users with filters
-  getUsers: (params?: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    role?: string;
-    isActive?: boolean;
-  }): Promise<{ users: User[]; total: number; page: number; limit: number }> =>
-    apiClient.get("/users", params),
+  getUsers: (params?: Record<string, string | number | boolean>) =>
+    apiClient.get<{
+      users: User[];
+      total: number;
+      page: number;
+      limit: number;
+    }>("/users", params),
 
-  // Get single user
-  getUser: (id: string): Promise<User> => apiClient.get(`/users/${id}`),
+  getUser: (id: string) => apiClient.get<User>(`/users/${id}`),
 
-  // Update user
-  updateUser: (id: string, updates: Partial<User>): Promise<User> =>
-    apiClient.patch(`/users/${id}`, updates),
+  updateUser: (id: string, updates: Partial<User>) =>
+    apiClient.patch<User>(`/users/${id}`, updates),
 
-  // Delete user
-  deleteUser: (id: string): Promise<void> => apiClient.delete(`/users/${id}`),
+  deleteUser: (id: string) => apiClient.delete<void>(`/users/${id}`),
 
-  // Invite user
-  inviteUser: (userData: {
-    email: string;
-    name: string;
-    role: string;
-  }): Promise<{ message: string }> => apiClient.post("/users/invite", userData),
-
-  // Upload user avatar
-  uploadAvatar: (id: string, file: File): Promise<{ avatar: string }> => {
-    const formData = new FormData();
-    formData.append("avatar", file);
-    return apiClient.upload(`/users/${id}/avatar`, formData);
-  },
+  inviteUser: (userData: InviteUserPayload) =>
+    apiClient.post<{ message: string }>("/users/invite", userData),
 };
 
-// Analytics Services
+// --- Analytics Services ---
 export const analyticsService = {
-  // Get dashboard analytics
-  getDashboardAnalytics: (role: string): Promise<Analytics> =>
-    apiClient.get("/analytics/dashboard", { role }),
+  getDashboardAnalytics: (role: UserRole) =>
+    apiClient.get<Analytics>("/analytics/dashboard", { role }),
 
-  // Get course analytics
-  getCourseAnalytics: (
-    courseId: string,
-    timeRange?: string,
-  ): Promise<{
-    enrollments: number;
-    completions: number;
-    averageProgress: number;
-    averageScore: number;
-    timeSpent: number;
-    dropoutRate: number;
-    engagementRate: number;
-    dailyActivity: Array<{ date: string; value: number }>;
-    lessonPerformance: Array<{
-      lessonId: string;
-      completionRate: number;
-      averageScore: number;
-    }>;
-  }> => apiClient.get(`/analytics/courses/${courseId}`, { timeRange }),
+  getCourseAnalytics: (courseId: string, timeRange?: string) =>
+    apiClient.get<unknown>(`/analytics/courses/${courseId}`, { timeRange }),
 
-  // Get student analytics
-  getStudentAnalytics: (
-    userId: string,
-  ): Promise<{
-    totalCourses: number;
-    completedCourses: number;
-    totalTimeSpent: number;
-    averageScore: number;
-    certificates: number;
-    progressOverTime: Array<{ date: string; progress: number }>;
-    courseProgress: Array<{
-      courseId: string;
-      progress: number;
-      lastAccessed: Date;
-    }>;
-  }> => apiClient.get(`/analytics/students/${userId}`),
-
-  // Get instructor analytics
-  getInstructorAnalytics: (
-    instructorId: string,
-  ): Promise<{
-    totalCourses: number;
-    totalStudents: number;
-    averageCourseRating: number;
-    totalRevenue: number;
-    monthlyEnrollments: Array<{ month: string; enrollments: number }>;
-    topPerformingCourses: Array<{
-      courseId: string;
-      title: string;
-      rating: number;
-      enrollments: number;
-    }>;
-  }> => apiClient.get(`/analytics/instructors/${instructorId}`),
+  getStudentAnalytics: (userId: string) =>
+    apiClient.get<unknown>(`/analytics/students/${userId}`),
 };
 
-// Notification Services
+// --- Notification Services ---
 export const notificationService = {
-  // Get notifications for user
-  getNotifications: (params?: {
-    page?: number;
-    limit?: number;
-    unreadOnly?: boolean;
-  }): Promise<{ notifications: Notification[]; unreadCount: number }> =>
-    apiClient.get("/notifications", params),
+  getNotifications: (params?: { page?: number; limit?: number; unreadOnly?: boolean }) =>
+    apiClient.get<{ notifications: Notification[]; unreadCount: number }>(
+      "/notifications",
+      params,
+    ),
 
-  // Mark notification as read
-  markAsRead: (id: string): Promise<void> =>
-    apiClient.patch(`/notifications/${id}/read`),
+  markAsRead: (id: string) =>
+    apiClient.patch<void>(`/notifications/${id}/read`, {}),
 
-  // Mark all notifications as read
-  markAllAsRead: (): Promise<void> =>
-    apiClient.patch("/notifications/read-all"),
-
-  // Delete notification
-  deleteNotification: (id: string): Promise<void> =>
-    apiClient.delete(`/notifications/${id}`),
-
-  // Get notification settings
-  getSettings: (): Promise<{
-    emailNotifications: boolean;
-    pushNotifications: boolean;
-    courseUpdates: boolean;
-    assessmentReminders: boolean;
-    newEnrollments: boolean;
-  }> => apiClient.get("/notifications/settings"),
-
-  // Update notification settings
-  updateSettings: (settings: {
-    emailNotifications?: boolean;
-    pushNotifications?: boolean;
-    courseUpdates?: boolean;
-    assessmentReminders?: boolean;
-    newEnrollments?: boolean;
-  }): Promise<void> => apiClient.patch("/notifications/settings", settings),
+  markAllAsRead: () => apiClient.patch<void>("/notifications/read-all", {}),
 };
 
-// Search Services
+// --- Search Services ---
 export const searchService = {
-  // Global search
-  globalSearch: (
-    query: string,
-    filters?: {
-      type?: "courses" | "users" | "assessments";
-      category?: string;
-      difficulty?: string;
-    },
-  ): Promise<{
-    courses: Course[];
-    users: User[];
-    assessments: Assessment[];
-    total: number;
-  }> => apiClient.get("/search", { query, ...filters }),
+  globalSearch: (query: string, filters?: Record<string, string>) =>
+    apiClient.get<{
+      courses: Course[];
+      users: User[];
+      assessments: Assessment[];
+      total: number;
+    }>("/search", { query, ...filters }),
 
-  // Search suggestions
-  getSuggestions: (query: string): Promise<string[]> =>
-    apiClient.get("/search/suggestions", { query }),
-
-  // Popular searches
-  getPopularSearches: (): Promise<string[]> => apiClient.get("/search/popular"),
+  getSuggestions: (query: string) =>
+    apiClient.get<string[]>("/search/suggestions", { query }),
 };
 
-// Export all services
-export { ApiError, apiClient };
+// Assign to variable before default export
+const apiServices = {
+  courses: courseService,
+  enrollments: enrollmentService,
+  progress: progressService,
+  quizzes: assessmentService,
+  analytics: analyticsService,
+  users: userService,
+  lessons: lessonService,
+};
+
+export default apiServices;

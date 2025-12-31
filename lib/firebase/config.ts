@@ -12,6 +12,14 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Debugging: Check if config is loaded
+if (typeof window !== "undefined" && !firebaseConfig.apiKey) {
+  console.error(
+    "🚨 Firebase Config Error: Missing API Key. \n" +
+    "Make sure you have a .env.local file with variables starting with NEXT_PUBLIC_."
+  );
+}
+
 // Initialize Firebase
 let app: FirebaseApp;
 if (getApps().length === 0) {

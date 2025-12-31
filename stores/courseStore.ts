@@ -1,4 +1,3 @@
-// stores/courseStore.ts
 import { create } from "zustand";
 import { devtools, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
@@ -114,7 +113,7 @@ const initialState = {
 export const useCourseStore = create<CourseState>()(
   devtools(
     subscribeWithSelector(
-      immer((set, get) => ({
+      immer((set) => ({
         ...initialState,
 
         actions: {
@@ -134,7 +133,7 @@ export const useCourseStore = create<CourseState>()(
           updateCourse: (courseId, updates) =>
             set((state) => {
               const index = state.courses.findIndex(
-                (c: { id: string }) => c.id === courseId,
+                (c) => c.id === courseId,
               );
               if (index !== -1) {
                 state.courses[index] = { ...state.courses[index], ...updates };
@@ -147,7 +146,7 @@ export const useCourseStore = create<CourseState>()(
           deleteCourse: (courseId) =>
             set((state) => {
               state.courses = state.courses.filter(
-                (c: { id: string }) => c.id !== courseId,
+                (c) => c.id !== courseId,
               );
               if (state.currentCourse?.id === courseId) {
                 state.currentCourse = null;
@@ -195,7 +194,7 @@ export const useCourseStore = create<CourseState>()(
           updateEnrollment: (enrollmentId, updates) =>
             set((state) => {
               const index = state.enrollments.findIndex(
-                (e: { id: string }) => e.id === enrollmentId,
+                (e) => e.id === enrollmentId,
               );
               if (index !== -1) {
                 state.enrollments[index] = {
@@ -236,7 +235,7 @@ export const useCourseStore = create<CourseState>()(
           updateProgress: (progressId, updates) =>
             set((state) => {
               const index = state.progress.findIndex(
-                (p: { id: string }) => p.id === progressId,
+                (p) => p.id === progressId,
               );
               if (index !== -1) {
                 state.progress[index] = {
@@ -292,10 +291,10 @@ export const useCourseStore = create<CourseState>()(
               if (!currentCourse || !currentModule || !currentLesson) return;
 
               const currentModuleIndex = currentCourse.modules.findIndex(
-                (m: { id: unknown }) => m.id === currentModule.id,
+                (m) => m.id === currentModule.id,
               );
               const currentLessonIndex = currentModule.lessons.findIndex(
-                (l: { id: unknown }) => l.id === currentLesson.id,
+                (l) => l.id === currentLesson.id,
               );
 
               // Try next lesson in current module
@@ -320,10 +319,10 @@ export const useCourseStore = create<CourseState>()(
               if (!currentCourse || !currentModule || !currentLesson) return;
 
               const currentModuleIndex = currentCourse.modules.findIndex(
-                (m: { id: unknown }) => m.id === currentModule.id,
+                (m) => m.id === currentModule.id,
               );
               const currentLessonIndex = currentModule.lessons.findIndex(
-                (l: { id: unknown }) => l.id === currentLesson.id,
+                (l) => l.id === currentLesson.id,
               );
 
               // Try previous lesson in current module
@@ -361,7 +360,7 @@ export const useCourseStore = create<CourseState>()(
     ),
     {
       name: "course-store",
-      partialize: (state: { courseFilters: unknown; sidebar: unknown }) => ({
+      partialize: (state: CourseState) => ({
         courseFilters: state.courseFilters,
         sidebar: state.sidebar,
       }),
@@ -373,13 +372,13 @@ export const useCourseStore = create<CourseState>()(
 export const useCourseActions = () => useCourseStore((state) => state.actions);
 export const useCurrentCourse = () =>
   useCourseStore((state) => state.currentCourse);
-export const useCourses = () => useCourseStore((state) => state.courses);
+export const useCoursesStore = () => useCourseStore((state) => state.courses); // Renamed to avoid collision with hook
 export const useCoursesLoading = () =>
   useCourseStore((state) => state.coursesLoading);
 export const useCourseFilters = () =>
   useCourseStore((state) => state.courseFilters);
-export const useEnrollments = () =>
-  useCourseStore((state) => state.enrollments);
+export const useEnrollmentsStore = () =>
+  useCourseStore((state) => state.enrollments); // Renamed
 export const useCurrentEnrollment = () =>
   useCourseStore((state) => state.currentEnrollment);
 export const useProgress = () => useCourseStore((state) => state.progress);

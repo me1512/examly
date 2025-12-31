@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   reactStrictMode: true,
   images: {
     remotePatterns: [
@@ -18,6 +17,20 @@ const nextConfig: NextConfig = {
         pathname: "/**",
       },
     ],
+  },
+  // Headers to help with Google Sign In Popup
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Cross-Origin-Opener-Policy",
+            value: "same-origin-allow-popups",
+          },
+        ],
+      },
+    ];
   },
 };
 

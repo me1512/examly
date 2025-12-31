@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation"; // Added useRouter
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Home,
@@ -12,15 +12,10 @@ import {
   BarChart3,
   Settings,
   Menu,
-  X,
   Bell,
   Search,
   Plus,
   ChevronDown,
-  User,
-  LogOut,
-  Moon,
-  Sun,
   GraduationCap,
   Calendar,
   MessageSquare,
@@ -30,13 +25,15 @@ import {
   Database,
   Zap,
 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 
+// ... (Interface NavigationItem and navigation array remain the same) ...
 interface NavigationItem {
   name: string;
   href: string;
@@ -203,12 +200,13 @@ const navigation: NavigationItem[] = [
 ];
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
-  const { user } = useAuth();
+  const { user, isLoading, isInitialized } = useAuth();
+  const router = useRouter(); // Added router
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [notifications, setNotifications] = useState(3);
+  const [notifications] = useState(3);
 
   // Auto-expand navigation items based on current path
   useEffect(() => {
@@ -222,6 +220,13 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     }
   }, [pathname]);
 
+  // Protected Route Check: Redirect if initialized but no user
+  useEffect(() => {
+    if (isInitialized && !isLoading && !user) {
+      router.push("/login");
+    }
+  }, [isInitialized, isLoading, user, router]);
+
   const toggleExpand = (itemName: string) => {
     setExpandedItems((prev) =>
       prev.includes(itemName)
@@ -230,8 +235,18 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     );
   };
 
+  // Show loading spinner while Auth is initializing or if we have no user (preventing flash)
+  if (isLoading || !isInitialized || !user) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  // At this point, `user` is guaranteed to exist
   const filteredNavigation = navigation.filter(
-    (item) => user?.role && item.roles.includes(user.role),
+    (item) => user.role && item.roles.includes(user.role),
   );
 
   const isActive = (href: string) => {
@@ -262,7 +277,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
           const isExpanded = expandedItems.includes(item.name);
           const isItemActive = isActive(item.href);
           const filteredChildren = item.children?.filter(
-            (child) => user?.role && child.roles.includes(user.role),
+            (child) => user.role && child.roles.includes(user.role),
           );
 
           return (
@@ -420,9 +435,9 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
             {/* Right side actions */}
             <div className="flex items-center space-x-4">
               {/* Quick Actions */}
-              {(user?.role === "teacher" ||
-                user?.role === "admin" ||
-                user?.role === "super-admin") && (
+              {(user.role === "teacher" ||
+                user.role === "admin" ||
+                user.role === "super-admin") && (
                 <Link href="/courses/create">
                   <Button size="sm" className="hidden sm:flex">
                     <Plus className="mr-2 h-4 w-4" />

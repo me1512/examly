@@ -1,4 +1,3 @@
-// app/(dashboard)/courses/page.tsx
 "use client";
 
 import CourseCard from "@/components/courses/CourseCard";
@@ -8,7 +7,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/hooks/useAuth";
 import { useCourses, useSearchCourses } from "@/hooks/useCourseQueries";
-import { cn } from "@/lib/utils"; // Assuming cn is used for class name utility
+import { cn } from "@/lib/utils";
 import { useCourseActions, useCourseFilters } from "@/stores/courseStore";
 import { CourseCategory, CourseLevel } from "@/types/course";
 import { motion } from "framer-motion";
@@ -18,14 +17,15 @@ import React, { useMemo, useState } from "react";
 
 const ITEMS_PER_PAGE = 12;
 
+type SortOption = "newest" | "oldest" | "popular" | "rating";
+type FilterValue = string | number | [number, number] | undefined;
+
 const CoursesPage = () => {
   const { user } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<
-    "newest" | "oldest" | "popular" | "rating"
-  >("newest");
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
 
   const filters = useCourseFilters();
   const { setCourseFilters, clearCourseFilters } = useCourseActions();
@@ -44,8 +44,12 @@ const CoursesPage = () => {
   // Determine which data to show
   const isSearching = searchQuery.length >= 2;
   const courses = useMemo(() => {
-    return isSearching ? searchResults || [] : coursesData?.data || [];
-  }, [isSearching, searchResults, coursesData?.data]);
+    if (isSearching) {
+      return searchResults || [];
+    }
+    // Access the 'data' property of the PaginatedResponse
+    return coursesData?.data || [];
+  }, [isSearching, searchResults, coursesData]);
 
   const isLoading = isSearching ? searchLoading : coursesLoading;
   const totalPages = isSearching
@@ -77,7 +81,9 @@ const CoursesPage = () => {
     }
   }, [courses, sortBy]);
 
-  const handleFilterChange = (key: string, value: any) => {
+  const handleFilterChange = (key: string, value: FilterValue) => {
+    // We strictly assume the key matches properties in CourseFilters
+    // and value is of the correct type for that key.
     setCourseFilters({ [key]: value });
     setCurrentPage(1);
   };
@@ -154,7 +160,10 @@ const CoursesPage = () => {
               <Select
                 value={filters.category || ""}
                 onValueChange={(value) =>
-                  handleFilterChange("category", value || undefined)
+                  handleFilterChange(
+                    "category",
+                    (value as CourseCategory) || undefined,
+                  )
                 }
               >
                 <option value="">All Categories</option>
@@ -171,7 +180,10 @@ const CoursesPage = () => {
               <Select
                 value={filters.level || ""}
                 onValueChange={(value) =>
-                  handleFilterChange("level", value || undefined)
+                  handleFilterChange(
+                    "level",
+                    (value as CourseLevel) || undefined,
+                  )
                 }
               >
                 <option value="">All Levels</option>
@@ -211,7 +223,7 @@ const CoursesPage = () => {
             <div className="min-w-0 flex-shrink-0">
               <Select
                 value={sortBy}
-                onValueChange={(value) => setSortBy(value as any)}
+                onValueChange={(value) => setSortBy(value as SortOption)}
               >
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>

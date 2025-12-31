@@ -1,23 +1,14 @@
-// components/courses/CourseCard.tsx
 "use client";
 
 import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import {
-  Clock,
-  Users,
-  Star,
-  BookOpen,
-  Play,
-  Badge,
-  DollarSign,
-} from "lucide-react";
+import { Clock, Users, Star, BookOpen, Play, DollarSign } from "lucide-react";
 import { Course } from "@/types/course";
 import { Button } from "@/components/ui/Button";
 import {
   useEnrollmentStatus,
-  useEnrollInCourse
+  useEnrollInCourse,
 } from "@/hooks/useCourseQueries";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -43,7 +34,6 @@ export const CourseCard: React.FC<CourseCardProps> = ({
   const handleEnroll = (e: React.MouseEvent) => {
     e.preventDefault();
     if (!user) {
-      // Redirect to login
       window.location.href = "/login";
       return;
     }
@@ -61,7 +51,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
   };
 
   const getLevelColor = (level: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       beginner:
         "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
       intermediate:
@@ -70,7 +60,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
       expert:
         "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
     };
-    return colors[level as keyof typeof colors] || colors.beginner;
+    return colors[level.toLowerCase()] || colors.beginner;
   };
 
   if (variant === "compact") {
@@ -165,8 +155,8 @@ export const CourseCard: React.FC<CourseCardProps> = ({
           <Image
             src={course.thumbnail || "/placeholder-course.jpg"}
             alt={course.title}
-            width={64}
-            height={64}
+            width={400}
+            height={200}
             className="h-48 w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
 
@@ -223,7 +213,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
             </span>
             <span className="flex items-center">
               <BookOpen className="mr-1 h-4 w-4" />
-              {course.modules.length} modules
+              {course.modules?.length || 0} modules
             </span>
             <span className="flex items-center">
               <Users className="mr-1 h-4 w-4" />

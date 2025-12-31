@@ -1,0 +1,310 @@
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions for authentication and authorization
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Safe role checking - handles case when user document doesn't exist yet
+    function getUserRole() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role : 
+             null;
+    }
+    
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.superAdmin == true ||
+        getUserRole() == 'super-admin'
+      );
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.admin == true ||
+        getUserRole() == 'admin' ||
+        isSuperAdmin()
+      );
+    }
+    
+    function isTeacher() {
+      return isAuthenticated() && (
+        request.auth.token.teacher == true ||
+        getUserRole() == 'teacher' ||
+        isAdmin()
+      );
+    }
+    
+    function isStudent() {
+      return isAuthenticated() && (
+        getUserRole() == 'student' ||
+        isTeacher()
+      );
+    }
+    
+    function hasMinimumRole(minRole) {
+      return (minRole == 'guest' && isAuthenticated()) ||
+             (minRole == 'student' && isStudent()) ||
+             (minRole == 'teacher' && isTeacher()) ||
+             (minRole == 'admin' && isAdmin()) ||
+             (minRole == 'super-admin' && isSuperAdmin());
+    }
+    
+    // Validation functions
+    function isValidEmail(email) {
+      return email.matches('.*@.*\\..*');
+    }
+    
+    function isValidTimestamp(ts) {
+      return ts is timestamp;
+    }
+    
+    function isValidRole(role) {
+      return role in ['guest', 'student', 'teacher', 'admin', 'super-admin'];
+    }
+
+    // Users collection - Simplified for registration
+    match /users/{userId} {
+      // Read permissions
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Create permissions - Allow self-registration or admin creation
+      allow create: if isOwner(userId) || isAdmin();
+      
+      // Update permissions
+      allow update: if isOwner(userId) || isAdmin();
+      
+      // Delete permissions
+      allow delete: if isAdmin();
+    }
+
+    // Organizations/Schools collection
+    match /organizations/{orgId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Exams collection
+    match /exams/{examId} {
+      // Students and above can read active exams, teachers can read their own, admins can read all
+      allow read: if (isAuthenticated() && resource.data.isActive == true) ||
+                     (isTeacher() && resource.data.createdBy == request.auth.uid) ||
+                     isAdmin();
+      
+      // Teachers can create exams, admins can create any
+      allow create: if isTeacher() || isAdmin();
+      
+      // Creators can update their own exams, admins can update any
+      allow update: if (isTeacher() && resource.data.createdBy == request.auth.uid) ||
+                       isAdmin();
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+
+    // Questions collection
+    match /questions/{questionId} {
+      // Teachers can read questions they created, admins can read all
+      allow read: if (isTeacher() && resource.data.createdBy == request.auth.uid) ||
+                     isAdmin();
+      
+      // Teachers can create questions
+      allow create: if isTeacher() || isAdmin();
+      
+      // Creators can update their questions, admins can update any
+      allow update: if (isTeacher() && resource.data.createdBy == request.auth.uid) ||
+                       isAdmin();
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+
+    // Question banks
+    match /questionBanks/{bankId} {
+      allow read: if (isTeacher() && resource.data.createdBy == request.auth.uid) ||
+                     isAdmin();
+      allow create: if isTeacher();
+      allow update: if (isTeacher() && resource.data.createdBy == request.auth.uid) ||
+                       isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Classes/Groups collection
+    match /classes/{classId} {
+      allow read: if (isTeacher() && resource.data.teacherId == request.auth.uid) ||
+                     (isStudent() && request.auth.uid in resource.data.students) ||
+                     isAdmin();
+      
+      allow create: if isTeacher();
+      allow update: if (isTeacher() && resource.data.teacherId == request.auth.uid) ||
+                       isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Exam sessions
+    match /examSessions/{sessionId} {
+      // Users can access their own sessions
+      allow read, write: if isAuthenticated() && 
+                           request.auth.uid == resource.data.userId;
+      
+      // Teachers can monitor their exam sessions
+      allow read: if isTeacher() && 
+                     exists(/databases/$(database)/documents/exams/$(resource.data.examId)) &&
+                     get(/databases/$(database)/documents/exams/$(resource.data.examId)).data.createdBy == request.auth.uid;
+      
+      // Admins can read all
+      allow read: if isAdmin();
+    }
+
+    // Exam attempts (results)
+    match /examAttempts/{attemptId} {
+      // Users can read their own attempts, teachers can read attempts for their exams
+      allow read: if (isAuthenticated() && request.auth.uid == resource.data.userId) ||
+                     isAdmin();
+      
+      // Users can create their own attempts
+      allow create: if isAuthenticated() && 
+                      request.auth.uid == request.resource.data.userId;
+      
+      // Teachers can update attempts for manual grading, admins can update any
+      allow update: if isAdmin();
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+
+    // Results collection
+    match /results/{resultId} {
+      allow read: if (isAuthenticated() && request.auth.uid == resource.data.userId) ||
+                     isAdmin();
+      allow create: if isAuthenticated() || isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Assignments
+    match /assignments/{assignmentId} {
+      allow read: if (isTeacher() && resource.data.teacherId == request.auth.uid) ||
+                     (isStudent() && request.auth.uid in resource.data.assignedStudents) ||
+                     isAdmin();
+      
+      allow create: if isTeacher();
+      allow update: if (isTeacher() && resource.data.teacherId == request.auth.uid) ||
+                       isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Categories
+    match /categories/{categoryId} {
+      allow read: if isAuthenticated();
+      allow write: if isTeacher() || isAdmin();
+    }
+
+    // Analytics
+    match /analytics/{docId} {
+      allow read: if isTeacher() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // System settings
+    match /settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && 
+                     resource.data.userId == request.auth.uid;
+      
+      allow create: if isTeacher() || isAdmin();
+      
+      allow update: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
+      
+      allow delete: if isAuthenticated() && 
+                      resource.data.userId == request.auth.uid;
+    }
+
+    // Certificates
+    match /certificates/{certificateId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) ||
+                     isAdmin();
+      allow create: if isTeacher() || isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // Gradebooks
+    match /gradebooks/{gradebookId} {
+      allow read: if (isTeacher() && resource.data.teacherId == request.auth.uid) ||
+                     (isStudent() && resource.data.studentId == request.auth.uid) ||
+                     isAdmin();
+      
+      allow write: if (isTeacher() && resource.data.teacherId == request.auth.uid) ||
+                      isAdmin();
+    }
+
+    // Activity logs
+    match /activityLog/{logId} {
+      allow read: if isAdmin();
+      allow write: if isAuthenticated();
+    }
+
+    // Audit logs
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    // File uploads
+    match /uploads/{uploadId} {
+      allow read: if isAuthenticated() && 
+                     resource.data.uploadedBy == request.auth.uid ||
+                     isAdmin();
+      
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+
+    // Mock tests
+    match /mockTests/{testId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isTeacher() || isAdmin();
+    }
+
+    // System administration
+    match /systemConfig/{configId} {
+      allow read, write: if isSuperAdmin();
+    }
+
+    // Reports
+    match /reports/{reportId} {
+      allow read: if (isAuthenticated() && resource.data.generatedBy == request.auth.uid) ||
+                     isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+
+    // Feedback
+    match /feedback/{feedbackId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) ||
+                     isAdmin();
+      allow create: if isAuthenticated();
+      allow update: if isAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // Catch-all rule
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

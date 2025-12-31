@@ -17,6 +17,74 @@ function getRoleBasedWelcomeMessage(role: UserRole): string {
 }
 
 function generateMockDashboardData(role: UserRole) {
+  // Basic mock enrollments with required fields
+  const mockEnrollments = [
+    {
+      id: "1",
+      title: "React Development",
+      instructorName: "John Smith",
+      progress: 75,
+      // Required fields from Enrollment interface
+      userId: "user1",
+      courseId: "c1",
+      enrolledAt: new Date(),
+      status: "active",
+      description: "Learn React from scratch",
+      instructorId: "inst1",
+      category: "Development",
+      difficulty: "intermediate",
+      duration: 120,
+      studentsCount: 100,
+      lessonsCount: 20,
+      isPublished: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      tags: ["react", "js"],
+    },
+    {
+      id: "2",
+      title: "JavaScript Fundamentals",
+      instructorName: "Jane Doe",
+      progress: 45,
+      userId: "user1",
+      courseId: "c2",
+      enrolledAt: new Date(),
+      status: "active",
+      description: "JS Basics",
+      instructorId: "inst2",
+      category: "Development",
+      difficulty: "beginner",
+      duration: 60,
+      studentsCount: 200,
+      lessonsCount: 10,
+      isPublished: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      tags: ["javascript"],
+    },
+    {
+      id: "3",
+      title: "CSS Mastery",
+      instructorName: "Mike Johnson",
+      progress: 20,
+      userId: "user1",
+      courseId: "c3",
+      enrolledAt: new Date(),
+      status: "active",
+      description: "Advanced CSS",
+      instructorId: "inst3",
+      category: "Design",
+      difficulty: "advanced",
+      duration: 90,
+      studentsCount: 150,
+      lessonsCount: 15,
+      isPublished: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      tags: ["css", "design"],
+    },
+  ];
+
   const baseData = {
     recentActivity: [
       {
@@ -67,26 +135,8 @@ function generateMockDashboardData(role: UserRole) {
         isPublished: true,
       },
     ],
-    enrollments: [
-      {
-        id: "1",
-        courseTitle: "React Development",
-        instructorName: "John Smith",
-        progress: 75,
-      },
-      {
-        id: "2",
-        courseTitle: "JavaScript Fundamentals",
-        instructorName: "Jane Doe",
-        progress: 45,
-      },
-      {
-        id: "3",
-        courseTitle: "CSS Mastery",
-        instructorName: "Mike Johnson",
-        progress: 20,
-      },
-    ],
+    // Corrected key to match DashboardData interface
+    recentEnrollments: mockEnrollments,
   };
 
   // Role-specific stats

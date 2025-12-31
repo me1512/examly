@@ -6,9 +6,10 @@ import { auth } from "@/lib/firebase/config";
 import { useAuthStore } from "@/stores/authStore";
 import { UserRole } from "@/types/auth";
 import { useQueryClient } from "@tanstack/react-query";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { onAuthStateChanged, User, getRedirectResult } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { toast } from "react-hot-toast";
 
 export const useAuth = () => {
   const {
@@ -21,19 +22,41 @@ export const useAuth = () => {
     setInitialized,
     setError,
     clearError,
-    reset,
   } = useAuthStore();
 
   const queryClient = useQueryClient();
   const router = useRouter();
 
-  // Listen to auth state changes
+  // 1. Handle Redirect Result (Explicitly check for returning Google users)
+  useEffect(() => {
+    const handleRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result && result.user) {
+          // If we have a user from redirect, ensure profile exists
+          // The onAuthStateChanged will actually trigger the state update
+          // but we can do a sanity check or specific logic here if needed.
+          console.log("Redirect success:", result.user.email);
+        }
+      } catch (error) {
+        console.error("Redirect login error:", error);
+        const message = error instanceof Error ? error.message : "Login failed";
+        setError(message);
+        toast.error(message);
+      }
+    };
+
+    handleRedirect();
+  }, [setError]);
+
+  // 2. Main Auth Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(
       auth,
       async (firebaseUser: User | null) => {
         try {
           if (firebaseUser) {
+            // Fetch/Create user profile in Firestore
             const authUser = await AuthService.getUserData(firebaseUser);
             setUser(authUser);
           } else {
@@ -41,6 +64,7 @@ export const useAuth = () => {
             queryClient.clear();
           }
         } catch (error) {
+          console.error("Auth state handling error:", error);
           setError(
             error instanceof Error
               ? error.message
@@ -52,6 +76,7 @@ export const useAuth = () => {
         }
       },
       (error) => {
+        console.error("Auth subscription error:", error);
         setError(
           error instanceof Error
             ? error.message
@@ -69,15 +94,14 @@ export const useAuth = () => {
     try {
       setLoading(true);
       await AuthService.signOut();
-      // refresh page
-      router.refresh();
-      reset();
       queryClient.clear();
+      router.push("/login");
     } catch (error) {
+      console.error("Sign out error:", error);
       setError(
         error instanceof Error ? error.message : "An unexpected error occurred",
       );
-      setLoading(false); // Ensure loading is false on error
+      setLoading(false);
     }
   };
 

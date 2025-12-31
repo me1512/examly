@@ -1,4 +1,6 @@
+// app/layout.tsx
 import type { Metadata } from "next";
+import { Toaster } from "react-hot-toast"; // Import Toaster
 import "./globals.css";
 import ThemeProvider from "@/provider/ThemeProvider";
 import Footer from "@/components/navigation/Footer";
@@ -38,9 +40,32 @@ export default function RootLayout({
         />
       </head>
       <body className={cn("antialiased", fontSans.variable, fontMono.variable)}>
-        {/* No script - let React handle everything */}
         <ThemeProvider>
           <QueryClientProviderWrapper>
+            {/* Add Toaster here so notifications can appear anywhere in the app */}
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                className: "dark:bg-slate-800 dark:text-white",
+                style: {
+                  background: "#333",
+                  color: "#fff",
+                },
+                // Custom theme handling for light/dark mode
+                success: {
+                  style: {
+                    background: "#10B981", // green-500
+                    color: "white",
+                  },
+                },
+                error: {
+                  style: {
+                    background: "#EF4444", // red-500
+                    color: "white",
+                  },
+                },
+              }}
+            />
             <Navbar />
             {children}
             <Footer />

@@ -25,11 +25,7 @@ export const useAuthMutations = () => {
 
   const googleSignInMutation = useMutation({
     mutationFn: () => AuthService.signInWithGoogle(),
-    onSuccess: (user: AuthUser) => {
-      setUser(user);
-      queryClient.setQueryData(["user", user.uid], user);
-      toast.success("Successfully signed in with Google!");
-    },
+    // onSuccess removed for Redirect flow
     onError: (error: Error) => {
       setError(error.message);
       toast.error(error.message);
@@ -50,6 +46,7 @@ export const useAuthMutations = () => {
     },
   });
 
+  // ... (resetPasswordMutation, updateProfileMutation, sendVerificationMutation - KEEP AS IS) ...
   const resetPasswordMutation = useMutation({
     mutationFn: (email: string) => AuthService.resetPassword(email),
     onSuccess: () => {

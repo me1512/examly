@@ -1,24 +1,55 @@
-"use client"
+"use client";
 
-// hooks/useCourseQueries.ts
 import { useEffect } from "react";
-import { useEnrollments } from "./useApiQueries";
-import {
-  courseServices,
-  enrollmentServices,
-  progressServices,
-  quizServices,
-} from "@/lib/api/courseServices";
+import { 
+  courseService, 
+  enrollmentService, 
+  progressService, 
+  assessmentService,
+  lessonService 
+} from "@/lib/api/services";
 import { useCourseActions } from "@/stores/courseStore";
 import {
   CourseFilters,
   CreateCourseRequest,
   UpdateCourseRequest,
+  CourseModule,
+  Progress,
+  Lesson,
+  Enrollment
 } from "@/types/course";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
+import { useEnrollments } from "./useApiQueries";
 
-// Query Keys
+// --- Types for Mutation Variables ---
+interface CreateLessonVars {
+  courseId: string;
+  lessonData: Omit<Lesson, "id" | "createdAt" | "updatedAt">;
+}
+
+interface UpdateLessonVars {
+  courseId: string;
+  lessonId: string;
+  updates: Partial<Lesson>;
+}
+
+interface DeleteLessonVars {
+  courseId: string;
+  lessonId: string;
+}
+
+interface ReorderLessonsVars {
+  courseId: string;
+  lessonIds: string[];
+}
+
+interface CreateAssessmentVars {
+  courseId: string;
+  assessmentData: Omit<import("@/types/dashboard").Assessment, "id" | "createdAt" | "updatedAt">;
+}
+
+// --- Query Keys ---
 export const courseKeys = {
   all: ["courses"] as const,
   lists: () => [...courseKeys.all, "list"] as const,
@@ -47,7 +78,12 @@ export const progressKeys = {
   stats: () => [...progressKeys.all, "stats"] as const,
 };
 
-// Course Queries
+export const lessonKeys = {
+  all: ["lessons"] as const,
+  list: (courseId: string) => [...lessonKeys.all, courseId] as const,
+};
+
+// --- Course Queries ---
 export const useCourses = (
   filters: CourseFilters = {},
   page = 1,
@@ -57,11 +93,10 @@ export const useCourses = (
 
   const result = useQuery({
     queryKey: courseKeys.list({ ...filters, page, limit }),
-    queryFn: () => courseServices.getCourses(filters, page, limit),
+    queryFn: () => courseService.getCourses(filters, page, limit),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Handle side effects
   useEffect(() => {
     if (result.data) {
       setCourses(result.data.data);
@@ -81,7 +116,7 @@ export const useCourse = (id: string) => {
 
   const result = useQuery({
     queryKey: courseKeys.detail(id),
-    queryFn: () => courseServices.getCourse(id),
+    queryFn: () => courseService.getCourse(id),
     enabled: !!id,
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
@@ -106,66 +141,45 @@ export const useCourseProgress = (courseId: string) => {
 
   const result = useQuery({
     queryKey: progressKeys.course(courseId),
-    queryFn: () => progressServices.getCourseProgress(courseId),
+    queryFn: () => progressService.getCourseProgress(courseId),
     enabled: !!courseId,
   });
 
   useEffect(() => {
     if (result.data) {
-      setProgress(result.data);
+      // Cast the response to Progress[] to match the store
+      setProgress(result.data as unknown as Progress[]);
     }
   }, [result.data, setProgress]);
-
-  useEffect(() => {
-    if (result.error) {
-      toast.error("Failed to load course progress");
-    }
-  }, [result.error]);
 
   return result;
 };
 
 export const useInstructorCourses = (instructorId: string) => {
-  const result = useQuery({
+  return useQuery({
     queryKey: courseKeys.instructor(instructorId),
-    queryFn: () => courseServices.getCoursesByInstructor(instructorId),
+    queryFn: () => courseService.getCoursesByInstructor(instructorId),
     enabled: !!instructorId,
     staleTime: 5 * 60 * 1000,
   });
-
-  useEffect(() => {
-    if (result.error) {
-      toast.error("Failed to load instructor courses");
-    }
-  }, [result.error]);
-
-  return result;
 };
 
 export const useSearchCourses = (query: string) => {
-  const result = useQuery({
+  return useQuery({
     queryKey: courseKeys.search(query),
-    queryFn: () => courseServices.searchCourses(query),
+    queryFn: () => courseService.searchCourses(query),
     enabled: query.length > 2,
   });
-
-  useEffect(() => {
-    if (result.error) {
-      toast.error("Failed to search courses");
-    }
-  }, [result.error]);
-
-  return result;
 };
 
-// Course Mutations
+// --- Course Mutations ---
 export const useCreateCourse = () => {
   const queryClient = useQueryClient();
   const { addCourse } = useCourseActions();
 
   return useMutation({
-    mutationFn: (data: CreateCourseRequest) =>
-      courseServices.createCourse(data),
+    mutationFn: (data: CreateCourseRequest | FormData) =>
+      courseService.createCourse(data),
     onSuccess: (newCourse) => {
       queryClient.invalidateQueries({ queryKey: courseKeys.lists() });
       addCourse(newCourse);
@@ -183,7 +197,7 @@ export const useUpdateCourse = () => {
 
   return useMutation({
     mutationFn: (data: UpdateCourseRequest) =>
-      courseServices.updateCourse(data),
+      courseService.updateCourse(data.id, data),
     onSuccess: (updatedCourse) => {
       queryClient.invalidateQueries({
         queryKey: courseKeys.detail(updatedCourse.id),
@@ -198,15 +212,13 @@ export const useUpdateCourse = () => {
   });
 };
 
-// ...
-
-// Progress Mutations
+// --- Progress Mutations ---
 export const useMarkLessonComplete = (lessonId: string) => {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: () =>
-      progressServices.markLessonComplete(lessonId),
+      progressService.markLessonComplete(lessonId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: progressKeys.all });
       toast.success("Lesson marked as complete!");
@@ -221,8 +233,8 @@ export const useUpdateLessonProgress = (lessonId: string) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { completed: boolean }) =>
-      progressServices.updateLessonProgress(lessonId, data),
+    mutationFn: (variables: { userId: string, courseId: string, data: { completed: boolean } }) =>
+      progressService.updateLessonProgress(variables.userId, variables.courseId, lessonId, variables.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: progressKeys.all });
       toast.success("Lesson progress updated!");
@@ -233,9 +245,7 @@ export const useUpdateLessonProgress = (lessonId: string) => {
   });
 };
 
-// ...
-
-// Quiz Mutations
+// --- Quiz Mutations ---
 export const useSubmitQuizAttempt = () => {
   const queryClient = useQueryClient();
 
@@ -246,7 +256,7 @@ export const useSubmitQuizAttempt = () => {
     }: {
       quizId: string;
       answers: Record<string, string | string[]>;
-    }) => quizServices.submitQuizAttempt(quizId, answers),
+    }) => assessmentService.submitQuizAttempt(quizId, answers),
     onSuccess: (result, { quizId }) => {
       queryClient.invalidateQueries({ queryKey: ["quiz-attempts", quizId] });
       queryClient.invalidateQueries({ queryKey: progressKeys.all });
@@ -262,12 +272,12 @@ export const useSubmitQuizAttempt = () => {
   });
 };
 
-// Enrollment Mutations
+// --- Enrollment Mutations ---
 export const useEnrollInCourse = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (courseId: string) => enrollmentServices.enrollInCourse(courseId),
+    mutationFn: (courseId: string) => enrollmentService.enrollInCourse(courseId),
     onSuccess: (_, courseId) => {
       queryClient.invalidateQueries({ queryKey: enrollmentKeys.user() });
       queryClient.invalidateQueries({ queryKey: enrollmentKeys.course(courseId) });
@@ -279,16 +289,100 @@ export const useEnrollInCourse = () => {
   });
 };
 
-// Custom hooks for common operations
-import type { Enrollment as CourseEnrollment } from "@/types/course";
-import type { Enrollment as DashboardEnrollment } from "@/types/dashboard";
+// --- Lesson Mutations ---
+export const useCreateLesson = () => {
+  const queryClient = useQueryClient();
 
-type Enrollment = CourseEnrollment | DashboardEnrollment;
+  return useMutation({
+    mutationFn: ({ courseId, lessonData }: CreateLessonVars) => 
+      lessonService.createLesson(courseId, lessonData),
+    onSuccess: (_, variables) => {
+      // Use variables.courseId because the response 'Lesson' type might not contain courseId
+      queryClient.invalidateQueries({
+        queryKey: lessonKeys.list(variables.courseId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: courseKeys.detail(variables.courseId),
+      });
+      toast.success("Lesson created successfully!");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to create lesson");
+    },
+  });
+};
 
+export const useUpdateLesson = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ courseId, lessonId, updates }: UpdateLessonVars) => 
+      lessonService.updateLesson(courseId, lessonId, updates),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: lessonKeys.list(variables.courseId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: courseKeys.detail(variables.courseId),
+      });
+      toast.success("Lesson updated successfully!");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update lesson");
+    },
+  });
+};
+
+export const useDeleteLesson = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ courseId, lessonId }: DeleteLessonVars) => 
+      lessonService.deleteLesson(courseId, lessonId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: lessonKeys.list(variables.courseId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: courseKeys.detail(variables.courseId),
+      });
+      toast.success("Lesson deleted successfully!");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to delete lesson");
+    },
+  });
+};
+
+export const useReorderLessons = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ courseId, lessonIds }: ReorderLessonsVars) => 
+      lessonService.reorderLessons(courseId, lessonIds),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: lessonKeys.list(variables.courseId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: courseKeys.detail(variables.courseId),
+      });
+      toast.success("Lessons reordered successfully!");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to reorder lessons");
+    },
+  });
+};
+
+// --- Custom Hooks ---
 export const useEnrollmentStatus = (courseId: string) => {
   const { data: enrollments } = useEnrollments();
+  
+  // Explicitly casting the array to Enrollment[] to ensure type safety 
+  // with the find operation
   const enrollment = Array.isArray(enrollments) 
-    ? enrollments.find((e: Enrollment) => e.courseId === courseId) 
+    ? (enrollments as unknown as Enrollment[]).find((e) => e.courseId === courseId) 
     : null;
 
   return {
@@ -303,12 +397,12 @@ export const useLessonCompletion = (courseId: string) => {
   const { data: course } = useCourse(courseId);
 
   const totalLessons = course?.modules?.reduce(
-    (total: number, module) => total + (module.lessons?.length || 0),
+    (total: number, module: CourseModule) => total + (module.lessons?.length || 0),
     0,
   ) || 0;
 
   const completedLessons = Array.isArray(progressData) 
-    ? progressData.reduce((count: number, progress) => {
+    ? (progressData as unknown as Progress[]).reduce((count: number, progress) => {
         return count + (progress.completed ? 1 : 0);
       }, 0)
     : 0;
