@@ -1,13 +1,14 @@
 // hooks/useAuth.ts
 "use client";
 
-import { useEffect } from "react";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { useQueryClient } from "@tanstack/react-query";
-import { auth } from "@/lib/firebase/config";
 import { AuthService } from "@/lib/firebase/auth";
-import { useAuthStore } from "@/store/authStore";
-import { AuthUser, UserRole } from "@/types/auth";
+import { auth } from "@/lib/firebase/config";
+import { useAuthStore } from "@/stores/authStore";
+import { UserRole } from "@/types/auth";
+import { useQueryClient } from "@tanstack/react-query";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export const useAuth = () => {
   const {
@@ -24,6 +25,7 @@ export const useAuth = () => {
   } = useAuthStore();
 
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   // Listen to auth state changes
   useEffect(() => {
@@ -67,6 +69,8 @@ export const useAuth = () => {
     try {
       setLoading(true);
       await AuthService.signOut();
+      // refresh page
+      router.refresh();
       reset();
       queryClient.clear();
     } catch (error) {

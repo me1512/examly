@@ -1,0 +1,253 @@
+import { UserRole } from "@/types/auth";
+import { NavigationItem } from "@/types/dashboard";
+
+export const navigationConfig: NavigationItem[] = [
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    href: "/dashboard",
+    icon: "LayoutDashboard",
+    roles: ["super-admin", "admin", "teacher", "student"],
+  },
+  {
+    id: "courses",
+    label: "Courses",
+    href: "/dashboard/courses",
+    icon: "BookOpen",
+    roles: ["super-admin", "admin", "teacher", "student"],
+    children: [
+      {
+        id: "my-courses",
+        label: "My Courses",
+        href: "/dashboard/courses/my-courses",
+        icon: "Book",
+        roles: ["teacher", "student"],
+      },
+      {
+        id: "all-courses",
+        label: "All Courses",
+        href: "/dashboard/courses/all",
+        icon: "Library",
+        roles: ["super-admin", "admin"],
+      },
+      {
+        id: "create-course",
+        label: "Create Course",
+        href: "/dashboard/courses/create",
+        icon: "Plus",
+        roles: ["super-admin", "admin", "teacher"],
+      },
+      {
+        id: "browse-courses",
+        label: "Browse Courses",
+        href: "/dashboard/courses/browse",
+        icon: "Search",
+        roles: ["student"],
+      },
+    ],
+  },
+  {
+    id: "assessments",
+    label: "Assessments",
+    href: "/dashboard/assessments",
+    icon: "ClipboardCheck",
+    roles: ["super-admin", "admin", "teacher", "student"],
+    children: [
+      {
+        id: "my-assessments",
+        label: "My Assessments",
+        href: "/dashboard/assessments/my-assessments",
+        icon: "FileCheck",
+        roles: ["teacher", "student"],
+      },
+      {
+        id: "create-assessment",
+        label: "Create Assessment",
+        href: "/dashboard/assessments/create",
+        icon: "Plus",
+        roles: ["super-admin", "admin", "teacher"],
+      },
+      {
+        id: "grade-submissions",
+        label: "Grade Submissions",
+        href: "/dashboard/assessments/grading",
+        icon: "GraduationCap",
+        roles: ["super-admin", "admin", "teacher"],
+      },
+    ],
+  },
+  {
+    id: "students",
+    label: "Students",
+    href: "/dashboard/students",
+    icon: "Users",
+    roles: ["super-admin", "admin", "teacher"],
+    children: [
+      {
+        id: "all-students",
+        label: "All Students",
+        href: "/dashboard/students/all",
+        icon: "UserCheck",
+        roles: ["super-admin", "admin"],
+      },
+      {
+        id: "my-students",
+        label: "My Students",
+        href: "/dashboard/students/my-students",
+        icon: "UserCheck",
+        roles: ["teacher"],
+      },
+      {
+        id: "student-progress",
+        label: "Progress Tracking",
+        href: "/dashboard/students/progress",
+        icon: "TrendingUp",
+        roles: ["super-admin", "admin", "teacher"],
+      },
+    ],
+  },
+  {
+    id: "analytics",
+    label: "Analytics",
+    href: "/dashboard/analytics",
+    icon: "BarChart3",
+    roles: ["super-admin", "admin", "teacher"],
+    children: [
+      {
+        id: "course-analytics",
+        label: "Course Analytics",
+        href: "/dashboard/analytics/courses",
+        icon: "LineChart",
+        roles: ["super-admin", "admin", "teacher"],
+      },
+      {
+        id: "student-analytics",
+        label: "Student Analytics",
+        href: "/dashboard/analytics/students",
+        icon: "Users",
+        roles: ["super-admin", "admin", "teacher"],
+      },
+      {
+        id: "performance-analytics",
+        label: "Performance",
+        href: "/dashboard/analytics/performance",
+        icon: "Activity",
+        roles: ["super-admin", "admin"],
+      },
+    ],
+  },
+  {
+    id: "users",
+    label: "User Management",
+    href: "/dashboard/users",
+    icon: "UserCog",
+    roles: ["super-admin", "admin"],
+    children: [
+      {
+        id: "all-users",
+        label: "All Users",
+        href: "/dashboard/users/all",
+        icon: "Users",
+        roles: ["super-admin", "admin"],
+      },
+      {
+        id: "teachers",
+        label: "Teachers",
+        href: "/dashboard/users/teachers",
+        icon: "GraduationCap",
+        roles: ["super-admin", "admin"],
+      },
+      {
+        id: "admins",
+        label: "Administrators",
+        href: "/dashboard/users/admins",
+        icon: "Shield",
+        roles: ["super-admin"],
+      },
+      {
+        id: "invite-users",
+        label: "Invite Users",
+        href: "/dashboard/users/invite",
+        icon: "UserPlus",
+        roles: ["super-admin", "admin"],
+      },
+    ],
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    href: "/dashboard/settings",
+    icon: "Settings",
+    roles: ["super-admin", "admin", "teacher", "student"],
+    children: [
+      {
+        id: "profile-settings",
+        label: "Profile",
+        href: "/dashboard/settings/profile",
+        icon: "User",
+        roles: ["super-admin", "admin", "teacher", "student"],
+      },
+      {
+        id: "notification-settings",
+        label: "Notifications",
+        href: "/dashboard/settings/notifications",
+        icon: "Bell",
+        roles: ["super-admin", "admin", "teacher", "student"],
+      },
+      {
+        id: "system-settings",
+        label: "System",
+        href: "/dashboard/settings/system",
+        icon: "Cog",
+        roles: ["super-admin", "admin"],
+      },
+      {
+        id: "security-settings",
+        label: "Security",
+        href: "/dashboard/settings/security",
+        icon: "Lock",
+        roles: ["super-admin", "admin"],
+      },
+    ],
+  },
+];
+
+export const getNavigationForRole = (role: UserRole): NavigationItem[] => {
+  return navigationConfig
+    .filter((item) => item.roles.includes(role))
+    .map((item) => ({
+      ...item,
+      children: item.children?.filter((child) => child.roles.includes(role)),
+    }));
+};
+
+export const breadcrumbConfig = {
+  "/dashboard": "Dashboard",
+  "/dashboard/courses": "Courses",
+  "/dashboard/courses/my-courses": "My Courses",
+  "/dashboard/courses/all": "All Courses",
+  "/dashboard/courses/create": "Create Course",
+  "/dashboard/courses/browse": "Browse Courses",
+  "/dashboard/assessments": "Assessments",
+  "/dashboard/assessments/my-assessments": "My Assessments",
+  "/dashboard/assessments/create": "Create Assessment",
+  "/dashboard/assessments/grading": "Grade Submissions",
+  "/dashboard/students": "Students",
+  "/dashboard/students/all": "All Students",
+  "/dashboard/students/my-students": "My Students",
+  "/dashboard/students/progress": "Progress Tracking",
+  "/dashboard/analytics": "Analytics",
+  "/dashboard/analytics/courses": "Course Analytics",
+  "/dashboard/analytics/students": "Student Analytics",
+  "/dashboard/analytics/performance": "Performance Analytics",
+  "/dashboard/users": "User Management",
+  "/dashboard/users/all": "All Users",
+  "/dashboard/users/teachers": "Teachers",
+  "/dashboard/users/admins": "Administrators",
+  "/dashboard/users/invite": "Invite Users",
+  "/dashboard/settings": "Settings",
+  "/dashboard/settings/profile": "Profile Settings",
+  "/dashboard/settings/notifications": "Notification Settings",
+  "/dashboard/settings/system": "System Settings",
+  "/dashboard/settings/security": "Security Settings",
+};

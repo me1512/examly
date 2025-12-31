@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -58,13 +59,11 @@ const Navbar = () => {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 justify-between">
           <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 shadow-sm">
-                <BookOpen className="h-5 w-5 text-white" />
-              </div>
-              <span className="bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-xl font-bold text-transparent dark:from-white dark:to-gray-300">
-                EduPlatform
-              </span>
+            <Link
+              href="/"
+              className="rounded-2xl bg-gradient-to-br from-gray-100 to-gray-300 dark:from-blue-400 dark:to-blue-800"
+            >
+              <Image src="/logo.png" alt="Logo" width={100} height={40} />
             </Link>
           </div>
 

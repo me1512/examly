@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import ThemeProvider from "@/provider/ThemeProvider";
-import NavItems from "@/components/navigation/Nav";
 import Footer from "@/components/navigation/Footer";
 import { fontSans } from "@/config/fonts";
 import { fontMono } from "@/config/fonts";
